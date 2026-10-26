@@ -33,18 +33,40 @@ def _clean_json_string(raw_str: str) -> str:
 
 
 def _find_catalog_destination(dest_query: str) -> Optional[Dict[str, Any]]:
-    """Finds best matching destination dictionary from query string."""
-    q = dest_query.strip().lower()
+    """Finds a catalog entry by city name; country alone is not a city match."""
+    q = re.sub(r"[^a-z0-9]+", " ", dest_query.lower()).strip()
+    matches = []
     for item in DESTINATION_CATALOG:
-        city_lower = item["city"].lower()
-        country_lower = item["country"].lower()
-        if q in city_lower or city_lower in q:
-            return item
-        if city_lower.split("&")[0].strip() in q:
-            return item
-        if country_lower in q and len(q) > 4:
-            return item
-    return None
+        city_name = item["city"].lower()
+        city_aliases = [city_name]
+        if "&" in city_name:
+            city_aliases.extend(part.strip() for part in city_name.split("&"))
+        for alias in city_aliases:
+            normalized_alias = re.sub(r"[^a-z0-9]+", " ", alias).strip()
+            if normalized_alias and re.search(rf"\b{re.escape(normalized_alias)}\b", q):
+                matches.append((len(normalized_alias), item))
+                break
+    return max(matches, key=lambda match: match[0])[1] if matches else None
+
+
+def _find_catalog_country(country_query: str) -> Optional[Dict[str, Any]]:
+    """Finds currency/country defaults without treating the country as its first city."""
+    normalized_query = re.sub(r"[^a-z0-9]+", " ", country_query.lower()).strip()
+    return next(
+        (
+            item for item in DESTINATION_CATALOG
+            if re.sub(r"[^a-z0-9]+", " ", item["country"].lower()).strip() == normalized_query
+        ),
+        None,
+    )
+
+
+def _format_destination(destination: str, country_name: str) -> str:
+    """Formats freeform destinations consistently for the itinerary display."""
+    city_name = destination.split(",", 1)[0].strip().title()
+    if country_name == "International":
+        return city_name
+    return f"{city_name}, {country_name}"
 
 
 class LLMService:
@@ -214,7 +236,15 @@ class LLMService:
             )
 
         cat_dest = _find_catalog_destination(destination)
-        curr_code = cat_dest.get("currency", "USD") if cat_dest else "USD"
+        country_input = destination.split(",")[-1].strip() if "," in destination else ""
+        country_defaults = _find_catalog_country(country_input) if country_input else None
+        destination_metadata = cat_dest or country_defaults
+        country_name = (
+            cat_dest["country"] if cat_dest else
+            country_input.title() if country_input else "International"
+        )
+        display_destination = _format_destination(destination, country_name)
+        curr_code = destination_metadata.get("currency", "USD") if destination_metadata else "USD"
         curr_info = CURRENCIES.get(curr_code, CURRENCIES["USD"])
         usd_rate = curr_info["rate_from_usd"]
         inr_rate = CURRENCIES["INR"]["rate_from_usd"]
@@ -248,7 +278,7 @@ class LLMService:
         {{
           "trip_title": "Signature Journey: {destination}",
           "destination": "{destination}",
-          "country": "{cat_dest.get('country', 'International') if cat_dest else 'International'}",
+          "country": "{country_name}",
           "local_currency_code": "{curr_code}",
           "local_currency_symbol": "{symbol}",
           "usd_exchange_rate": {usd_rate},
@@ -344,6 +374,11 @@ class LLMService:
             raw_output = self.generate_raw(prompt, system_instruction)
             cleaned = _clean_json_string(raw_output)
             data = json.loads(cleaned)
+            data["trip_title"] = f"Signature Journey: {display_destination}"
+            data["destination"] = display_destination
+            data["country"] = country_name
+            data["local_currency_code"] = curr_code
+            data["local_currency_symbol"] = symbol
             itinerary = self._process_itinerary_costs(data, usd_rate, inr_rate)
             return itinerary
         except Exception as e:
@@ -561,10 +596,13 @@ class LLMService:
         - Travel pace (Relaxed vs Moderate vs Fast-Paced)
         """
         cat = _find_catalog_destination(destination)
+        country_input = destination.split(",")[-1].strip() if "," in destination else ""
+        country_defaults = _find_catalog_country(country_input) if country_input else None
 
         if cat:
             city_display = cat["city"]
             country_name = cat["country"]
+            destination = _format_destination(destination, country_name)
             curr_code = cat.get("currency", "USD")
             curr_info = CURRENCIES.get(curr_code, CURRENCIES["USD"])
             usd_rate = curr_info["rate_from_usd"]
@@ -577,12 +615,13 @@ class LLMService:
             # Custom / Freeform City parsed dynamically
             clean_city = destination.split(",")[0].strip()
             city_display = clean_city.title()
-            country_name = destination.split(",")[1].strip() if "," in destination else "International"
-            curr_code = "USD"
-            curr_info = CURRENCIES["USD"]
-            usd_rate = 1.0
+            country_name = country_input.title() if country_input else "International"
+            destination = _format_destination(destination, country_name)
+            curr_code = country_defaults.get("currency", "USD") if country_defaults else "USD"
+            curr_info = CURRENCIES.get(curr_code, CURRENCIES["USD"])
+            usd_rate = curr_info["rate_from_usd"]
             inr_rate = CURRENCIES["INR"]["rate_from_usd"]
-            symbol = "$"
+            symbol = curr_info["symbol"]
             clusters = [
                 f"{city_display} Historic Old Town & Central Plaza",
                 f"{city_display} Arts Quarter & Waterfront Promenade",

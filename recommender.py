@@ -147,7 +147,6 @@ def render_recommender_tab(llm_service: LLMService):
                     ):
                         dest_str = f"{rec.city}, {rec.country}"
                         st.session_state["chosen_destination"] = dest_str
-                        st.session_state["destination_input_value"] = dest_str
                         st.session_state["current_nav_tab"] = "🗺 Day-by-Day Optimized Itinerary"
                         st.session_state["auto_trigger_plan"] = True
                         st.success(f"Selected {rec.city}! Generating customized itinerary...")

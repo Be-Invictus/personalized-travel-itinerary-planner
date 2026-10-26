@@ -309,9 +309,12 @@ def apply_wanderlust_theme():
     }
 
     /* Segmented Navigation Bar Styling */
-    div[role="radiogroup"] {
+    /* Keep the custom light segmented styling scoped to the main navigation.
+       Other radio controls should retain Streamlit's native theme. */
+    .st-key-main_navigation [role="radiogroup"] {
         display: flex;
         flex-direction: row;
+        flex-wrap: wrap;
         gap: 8px;
         background: #F1F5F9;
         padding: 6px;
@@ -321,8 +324,9 @@ def apply_wanderlust_theme():
         width: 100%;
     }
 
-    div[role="radiogroup"] > label {
-        flex: 1;
+    .st-key-main_navigation [role="radiogroup"] > label {
+        flex: 1 1 220px;
+        min-width: 0;
         background: transparent;
         padding: 10px 16px;
         border-radius: 8px;
@@ -333,20 +337,28 @@ def apply_wanderlust_theme():
         transition: all 0.2s ease;
         font-weight: 600;
         font-size: 0.95rem;
+        color: #1E293B !important;
+        word-break: normal;
+        overflow-wrap: normal;
     }
 
-    div[role="radiogroup"] > label:hover {
+    .st-key-main_navigation [role="radiogroup"] label,
+    .st-key-main_navigation [role="radiogroup"] label * {
+        color: #1E293B !important;
+    }
+
+    .st-key-main_navigation [role="radiogroup"] > label:hover {
         background: rgba(255, 255, 255, 0.7);
     }
 
-    div[role="radiogroup"] > label:has(input:checked) {
+    .st-key-main_navigation [role="radiogroup"] > label:has(input:checked) {
         background: #FFFFFF;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
         color: #0F172A;
         border-bottom: 3px solid #2A9D8F;
     }
 
-    div[role="radiogroup"] > label input {
+    .st-key-main_navigation [role="radiogroup"] > label input {
         display: none;
     }
 

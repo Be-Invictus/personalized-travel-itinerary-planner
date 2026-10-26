@@ -24,12 +24,16 @@ def render_generator_tab(llm_service: LLMService, current_itinerary: Optional[It
         st.info("👈 Configure your trip preferences in the left sidebar and click **'🚀 Generate Optimized Itinerary'** to build your plan!")
         return
 
+    destination_label = itinerary.destination.strip()
+    if itinerary.country and itinerary.country.casefold() not in destination_label.casefold():
+        destination_label = f"{destination_label}, {itinerary.country}"
+
     # Currency Display Mode Selector
     curr_col1, curr_col2 = st.columns([2.5, 1.5])
     with curr_col1:
         st.markdown(f"#### ✈ {itinerary.trip_title}")
         st.markdown(
-            f"**Destination:** {itinerary.destination}, {itinerary.country} &nbsp;|&nbsp; "
+            f"**Destination:** {destination_label} &nbsp;|&nbsp; "
             f"**Dates:** {itinerary.start_date} &bull; {itinerary.duration_days} Days &nbsp;|&nbsp; "
             f"**Party:** {itinerary.travel_party} &bull; {itinerary.pace}"
         )

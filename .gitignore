@@ -12,6 +12,7 @@ ENV/
 # Environment files
 .env
 .streamlit/secrets.toml
+streamlit-upload.zip
 
 # Operating System files
 .DS_Store

@@ -52,6 +52,17 @@ def _ensure_initial_seed():
 
 _ensure_initial_seed()
 
+
+def _configured_api_key(secret_name: str) -> str:
+    """Reads a key from the environment or Streamlit Community Cloud secrets."""
+    environment_value = os.environ.get(secret_name, "")
+    if environment_value:
+        return environment_value
+    try:
+        return str(st.secrets.get(secret_name, ""))
+    except Exception:
+        return ""
+
 # Navigation Tabs List
 NAV_TABS = [
     "🧭 Smart Destination Recommender",
@@ -85,7 +96,7 @@ with st.sidebar:
         api_key = st.text_input(
             "Gemini API Key",
             type="password",
-            value=os.environ.get("GEMINI_API_KEY", ""),
+            value=_configured_api_key("GEMINI_API_KEY"),
             help="Get your key at aistudio.google.com"
         )
         selected_model = st.selectbox("Gemini Model", PROVIDERS["Gemini"]["models"], index=0)
@@ -96,7 +107,7 @@ with st.sidebar:
         api_key = st.text_input(
             "Groq API Key",
             type="password",
-            value=os.environ.get("GROQ_API_KEY", ""),
+            value=_configured_api_key("GROQ_API_KEY"),
             help="Get your key at console.groq.com"
         )
         selected_model = st.selectbox("Groq Model", PROVIDERS["Groq"]["models"], index=0)
@@ -213,7 +224,7 @@ if generate_btn or auto_trigger:
                 interests=selected_interests
             )
             st.session_state["active_itinerary"] = itinerary
-            st.session_state["current_nav_tab"] = NAV_TABS[1]  # Switch directly to Tab 2
+            st.session_state["pending_nav_tab"] = NAV_TABS[1]
             st.success(f"✨ Successfully generated zero-backtracking itinerary for {target_destination}!")
             if llm_service.last_error:
                 st.info("ℹ️ Compiled with specialized geographic clustering intelligence.")
@@ -226,12 +237,18 @@ if generate_btn or auto_trigger:
 render_hero_banner()
 
 # Programmatically controllable tab navigation
+pending_nav_tab = st.session_state.pop("pending_nav_tab", None)
+if pending_nav_tab in NAV_TABS:
+    # Widget state must be set before the keyed radio is instantiated.
+    st.session_state["main_navigation"] = pending_nav_tab
+
 current_tab = st.radio(
     "Navigation Menu",
     options=NAV_TABS,
     index=NAV_TABS.index(st.session_state["current_nav_tab"]) if st.session_state["current_nav_tab"] in NAV_TABS else 0,
     horizontal=True,
-    label_visibility="collapsed"
+    label_visibility="collapsed",
+    key="main_navigation"
 )
 st.session_state["current_nav_tab"] = current_tab
 
