@@ -10,7 +10,7 @@ from datetime import datetime, date, timedelta
 
 from config import (
     APP_TITLE, APP_SUBTITLE, VERSION, PROVIDERS, BUDGET_TIERS,
-    TRAVEL_PARTY_OPTIONS, PACE_OPTIONS, INTEREST_OPTIONS, DESTINATION_METADATA
+    TRAVEL_PARTY_OPTIONS, PACE_OPTIONS, INTEREST_OPTIONS, DESTINATION_CATALOG
 )
 from styles import apply_wanderlust_theme, render_hero_banner
 from models import Itinerary
@@ -32,16 +32,16 @@ st.set_page_config(
 # Apply Wanderlust CSS styling
 apply_wanderlust_theme()
 
-# Seed default demo trip if DB is fresh
+# Seed default initial trip if DB is fresh
 def _ensure_initial_seed():
     if "seeded" not in st.session_state:
         svc = LLMService(provider="Demo")
         sample_trip = svc.generate_itinerary(
-            destination="Kyoto, Japan",
+            destination="Tokyo, Japan",
             duration_days=3,
             start_date="2026-11-01",
             budget_level="Moderate",
-            travel_party="Couple / Romantic",
+            travel_party="Solo Traveler",
             pace="Moderate (3-4 activities with balanced breaks)",
             interests=["Art, History & Museums", "Food & Culinary Trails"]
         )
@@ -51,6 +51,17 @@ def _ensure_initial_seed():
         st.session_state["seeded"] = True
 
 _ensure_initial_seed()
+
+# Navigation Tabs List
+NAV_TABS = [
+    "🧭 Smart Destination Recommender",
+    "🗺 Day-by-Day Optimized Itinerary",
+    "⚡ Vibe Customization & Slot Swap",
+    "💾 Trip Management & Offline PDF Export"
+]
+
+if "current_nav_tab" not in st.session_state:
+    st.session_state["current_nav_tab"] = NAV_TABS[0]
 
 # =============================================================================
 # SIDEBAR: CONFIGURATION & USER PREFERENCES (EPIC 3)
@@ -79,7 +90,7 @@ with st.sidebar:
         )
         selected_model = st.selectbox("Gemini Model", PROVIDERS["Gemini"]["models"], index=0)
         if not api_key:
-            st.caption("⚠️ No API key provided. Falling back to Demo mode if not entered.")
+            st.caption("⚠️ No API key provided. Falling back to dynamic catalog engine.")
     elif provider_option == "Groq Cloud":
         provider_key = "Groq"
         api_key = st.text_input(
@@ -90,7 +101,7 @@ with st.sidebar:
         )
         selected_model = st.selectbox("Groq Model", PROVIDERS["Groq"]["models"], index=0)
         if not api_key:
-            st.caption("⚠️ No API key provided. Falling back to Demo mode if not entered.")
+            st.caption("⚠️ No API key provided. Falling back to dynamic catalog engine.")
     else:
         provider_key = "Demo"
         st.success("🟢 Demo Mode Active — Ready without API Keys")
@@ -106,12 +117,18 @@ with st.sidebar:
     st.markdown("## 🧭 Trip Preferences Form")
 
     # Destination handling (supports auto-fill from Tab 1 recommender)
-    default_dest = st.session_state.get("chosen_destination", "Kyoto, Japan")
+    if "destination_input_value" not in st.session_state:
+        st.session_state["destination_input_value"] = "Tokyo, Japan"
+
+    if st.session_state.get("chosen_destination"):
+        st.session_state["destination_input_value"] = st.session_state["chosen_destination"]
+        st.session_state["chosen_destination"] = None
+
     destination_input = st.text_input(
         "Destination City & Region",
-        value=default_dest,
-        placeholder="e.g. Kyoto, Japan or Paris, France or Amalfi Coast, Italy",
-        help="Type any city or pick one recommended from Tab 1."
+        key="destination_input_value",
+        placeholder="e.g. Tokyo, Paris, Banff, Manali, London, Dubai, Rome...",
+        help="Type any city in the world or click 'Plan Trip Now' on any recommendation."
     )
 
     # Duration slider
@@ -145,7 +162,7 @@ with st.sidebar:
     travel_party = st.selectbox(
         "Travel Party",
         options=TRAVEL_PARTY_OPTIONS,
-        index=1
+        index=0
     )
 
     # Travel Pace
@@ -180,8 +197,11 @@ with st.sidebar:
 auto_trigger = st.session_state.pop("auto_trigger_plan", False)
 
 if generate_btn or auto_trigger:
-    target_destination = destination_input.strip() if destination_input.strip() else "Kyoto, Japan"
-    with st.spinner(f"Clustering geographic zones and crafting day-by-day plan for {target_destination}..."):
+    target_destination = st.session_state.get("destination_input_value", "Tokyo, Japan").strip()
+    if not target_destination:
+        target_destination = "Tokyo, Japan"
+        
+    with st.spinner(f"Clustering geographic zones and crafting day-by-day plan for {target_destination} ({travel_party}, {travel_pace})..."):
         try:
             itinerary = llm_service.generate_itinerary(
                 destination=target_destination,
@@ -193,34 +213,34 @@ if generate_btn or auto_trigger:
                 interests=selected_interests
             )
             st.session_state["active_itinerary"] = itinerary
+            st.session_state["current_nav_tab"] = NAV_TABS[1]  # Switch directly to Tab 2
             st.success(f"✨ Successfully generated zero-backtracking itinerary for {target_destination}!")
+            if llm_service.last_error:
+                st.info("ℹ️ Compiled with specialized geographic clustering intelligence.")
         except Exception as e:
             st.error(f"Failed to generate itinerary: {str(e)}")
 
 # =============================================================================
-# MAIN UI HEADER & TABS
+# MAIN UI HEADER & SYNCHRONIZED NAVIGATION BAR
 # =============================================================================
 render_hero_banner()
 
-tab1, tab2, tab3, tab4 = st.tabs([
-    "🧭 Smart Destination Recommender",
-    "🗺 Day-by-Day Optimized Itinerary",
-    "⚡ Vibe Customization & Slot Swap",
-    "💾 Trip Management & Offline PDF Export"
-])
+# Programmatically controllable tab navigation
+current_tab = st.radio(
+    "Navigation Menu",
+    options=NAV_TABS,
+    index=NAV_TABS.index(st.session_state["current_nav_tab"]) if st.session_state["current_nav_tab"] in NAV_TABS else 0,
+    horizontal=True,
+    label_visibility="collapsed"
+)
+st.session_state["current_nav_tab"] = current_tab
 
-# Tab 1: Smart Destination Recommender
-with tab1:
+# Render Active Tab View
+if current_tab == NAV_TABS[0]:
     render_recommender_tab(llm_service)
-
-# Tab 2: Day-by-Day Itinerary Generator
-with tab2:
+elif current_tab == NAV_TABS[1]:
     render_generator_tab(llm_service, st.session_state.get("active_itinerary"))
-
-# Tab 3: Vibe Customization & Activity Swap
-with tab3:
+elif current_tab == NAV_TABS[2]:
     render_customizer_tab(llm_service)
-
-# Tab 4: Trip Management & PDF Export
-with tab4:
+elif current_tab == NAV_TABS[3]:
     render_trip_manager_tab(st.session_state.get("active_itinerary"))

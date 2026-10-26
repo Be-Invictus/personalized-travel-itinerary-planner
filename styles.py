@@ -308,6 +308,48 @@ def apply_wanderlust_theme():
         border-radius: 8px 8px 0 0;
     }
 
+    /* Segmented Navigation Bar Styling */
+    div[role="radiogroup"] {
+        display: flex;
+        flex-direction: row;
+        gap: 8px;
+        background: #F1F5F9;
+        padding: 6px;
+        border-radius: 12px;
+        margin-bottom: 22px;
+        border: 1px solid #CBD5E1;
+        width: 100%;
+    }
+
+    div[role="radiogroup"] > label {
+        flex: 1;
+        background: transparent;
+        padding: 10px 16px;
+        border-radius: 8px;
+        text-align: center;
+        justify-content: center;
+        margin: 0;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+
+    div[role="radiogroup"] > label:hover {
+        background: rgba(255, 255, 255, 0.7);
+    }
+
+    div[role="radiogroup"] > label:has(input:checked) {
+        background: #FFFFFF;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+        color: #0F172A;
+        border-bottom: 3px solid #2A9D8F;
+    }
+
+    div[role="radiogroup"] > label input {
+        display: none;
+    }
+
     /* Custom Alert Boxes */
     .info-callout {
         background-color: #EFF6FF;
