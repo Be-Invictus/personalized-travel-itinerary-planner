@@ -5,6 +5,7 @@ Implements sequential time slots, strict geographic clustering, and multi-curren
 
 import streamlit as st
 from typing import Optional
+from html import escape
 from models import Itinerary, DayPlan, ActivitySlot
 from llm_service import LLMService
 from config import CURRENCIES
@@ -166,32 +167,38 @@ def render_generator_tab(llm_service: LLMService, current_itinerary: Optional[It
                     cost_str = f"{loc_sym}{slot.cost_local:,.0f} (${slot.cost_usd:,.0f} / ₹{slot.cost_inr:,.0f})"
 
                 booking_badge = '<span class="tag-chip" style="background:#FEE2E2; color:#991B1B;">⚡ Reservation Advised</span>' if slot.booking_required else ''
-                tags_html = "".join([f'<span class="tag-chip">{tag}</span>' for tag in slot.tags])
+                tags_html = "".join([f'<span class="tag-chip">{escape(tag)}</span>' for tag in slot.tags])
+                safe_time_slot = escape(slot.time_slot)
+                safe_time_range = escape(slot.time_range)
+                safe_neighborhood = escape(slot.neighborhood)
+                safe_title = escape(slot.title)
+                safe_description = escape(slot.description)
+                safe_transit_tip = escape(slot.transit_tip)
+                safe_slot_id = escape(slot.slot_id)
 
-                st.markdown(
+                st.html(
                     f"""
                     <div class="slot-card {slot_class}">
                         <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                             <div>
-                                <div class="slot-time">⏰ {slot.time_slot} ({slot.time_range}) &bull; <span style="color:#0284C7;">Cluster: {slot.neighborhood}</span></div>
-                                <div class="slot-title">{slot.title}</div>
+                                <div class="slot-time">⏰ {safe_time_slot} ({safe_time_range}) &bull; <span style="color:#0284C7;">Cluster: {safe_neighborhood}</span></div>
+                                <div class="slot-title">{safe_title}</div>
                             </div>
                             <div>
                                 <span class="cost-badge">{cost_str}</span>
                             </div>
                         </div>
-                        <div class="slot-desc">{slot.description}</div>
-                        <div class="slot-transit">🚶‍♂️ {slot.transit_tip}</div>
+                        <div class="slot-desc">{safe_description}</div>
+                        <div class="slot-transit">🚶‍♂️ {safe_transit_tip}</div>
                         <div class="slot-meta-row">
                             <div>
                                 {tags_html}
                                 {booking_badge}
                             </div>
-                            <div style="font-size:0.75rem; color:#94A3B8;">Slot ID: {slot.slot_id}</div>
+                            <div style="font-size:0.75rem; color:#94A3B8;">Slot ID: {safe_slot_id}</div>
                         </div>
                     </div>
                     """,
-                    unsafe_allow_html=True
                 )
 
     # Trip Highlights and Cultural Checklist
